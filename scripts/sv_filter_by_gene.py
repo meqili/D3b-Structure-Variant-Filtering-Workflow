@@ -1,7 +1,7 @@
 import argparse
 from argparse import RawTextHelpFormatter
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, split, explode, trim, coalesce, lit
+from pyspark.sql.functions import col, split, explode, trim, coalesce, lit, regexp_extract
 import glow
 import os
 
@@ -64,7 +64,10 @@ gene_symbols_trunc = [gl.replace('\xa0', '').replace('\n', '') for gl in gene_sy
 sv_df = spark.read.options(inferSchema=True, sep=sep, header=True, nullValue="").csv(annotated_sv_file)
 
 # Handle nulls and split Gene_name by semicolon, then explode to get one gene per row
-sv_df_genes = sv_df.withColumn("Gene_name_split_col", explode(split(coalesce(col("Gene_name"), lit("")), ";")))
+sv_df_genes = sv_df.withColumn("Gene_name_split_col", explode(split(coalesce(col("Gene_name"), lit("")), ";"))) \
+                   .withColumn("RE_gene_split_col", explode(split(coalesce(col("RE_gene"), lit("")), ";"))) \
+                   .withColumn("RE_gene_symbol", regexp_extract(col("RE_gene_split_col"), r'^([^\s(]+)', 1)) \
+                   .withColumn("RE_gene_symbol", trim(col("RE_gene_symbol")))
 
 # name output file
 base = os.path.basename(annotated_sv_file)
@@ -73,6 +76,7 @@ output_file = f"{name}.filtered{ext}"
 
 # Trim gene names and filter by your gene list
 sv_df_genes.withColumn("Gene_name_split_col", trim(col("Gene_name_split_col"))) \
-                      .filter(col("Gene_name_split_col").isin(gene_symbols_trunc)) \
-                      .toPandas() \
-                        .to_csv(output_file, sep="\t", index=False, na_rep='-')
+                      .filter(col("Gene_name_split_col").isin(gene_symbols_trunc) | col("RE_gene_symbol").isin(gene_symbols_trunc)) \
+                      .drop('Gene_name_split_col', 'RE_gene_split_col', 'RE_gene_symbol') \
+                      .distinct().toPandas() \
+                      .to_csv(output_file, sep="\t", index=False, na_rep='-')
