@@ -74,20 +74,30 @@ inputs:
   doc: Field separator in the input text file
   inputBinding:
     prefix: -S
-    position: 1
+    position: 3
     shellQuote: false
 - id: annotated_sv_file
   type: File
   inputBinding:
     prefix: --annotated_sv_file
-    position: 1
+    position: 3
     shellQuote: false
 - id: gene_list_file
   type: File
   inputBinding:
     prefix: --gene_list_file
-    position: 1
+    position: 3
     shellQuote: false
+- id: filter_gene_name
+  type: boolean
+  inputBinding:
+    position: 3
+    prefix: --filter_gene_name
+- id: filter_re_gene
+  type: boolean
+  inputBinding:
+    position: 3
+    prefix: --filter_re_gene
 - id: spark_driver_mem
   doc: GB of RAM to allocate to this task
   type: int?
@@ -140,7 +150,7 @@ inputs:
 
 outputs:
   filtered_sv_output:
-    type: File
+    type: File?
     outputBinding:
       glob: '*.filtered.tsv'
       outputEval: $(inheritMetadata(self, inputs.annotated_sv_file))
